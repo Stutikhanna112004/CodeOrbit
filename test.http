@@ -1,0 +1,47 @@
+### Register a new user
+### Register a new user
+POST http://127.0.0.1:8000/api/auth/register/
+Content-Type: application/json
+
+{
+  "username": "sHASHWAT",
+  "email": "stuti@example.com",
+  "password": "StrongPass123!",
+  "confirm_password": "StrongPass123!"
+}
+
+###
+
+### Login (get your JWT tokens)
+POST http://127.0.0.1:8000/api/auth/login/
+Content-Type: application/json
+
+{
+  "username": "sHASHWAT",
+  "password": "StrongPass123!"
+}
+
+###
+
+### Get profile (paste your access token from login response)
+GET http://127.0.0.1:8000/api/auth/profile/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc0ODc0NjUyLCJpYXQiOjE3NzQ4NzEwNTIsImp0aSI6IjlhMDlkNmM3ZDljOTQ5NWY4OTRmNzljMjJiMGJlOTY2IiwidXNlcl9pZCI6IjMifQ.qpiZKZfT-fbz71qqNOQD1kct4YZ0GYojIznOLNd-0Ko
+
+###
+
+### Submit code for review
+POST http://127.0.0.1:8000/api/reviews/
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc0ODc0NjUyLCJpYXQiOjE3NzQ4NzEwNTIsImp0aSI6IjlhMDlkNmM3ZDljOTQ5NWY4OTRmNzljMjJiMGJlOTY2IiwidXNlcl9pZCI6IjMifQ.qpiZKZfT-fbz71qqNOQD1kct4YZ0GYojIznOLNd-0Ko
+
+{
+  "title": "My first review",
+  "language": "python",
+  "code_snippet": "def add(a,b):\n    return a+b"
+}
+
+###
+
+### Get your review stats
+GET http://127.0.0.1:8000/api/reviews/stats/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc0ODc0NjUyLCJpYXQiOjE3NzQ4NzEwNTIsImp0aSI6IjlhMDlkNmM3ZDljOTQ5NWY4OTRmNzljMjJiMGJlOTY2IiwidXNlcl9pZCI6IjMifQ.qpiZKZfT-fbz71qqNOQD1kct4YZ0GYojIznOLNd-0Ko

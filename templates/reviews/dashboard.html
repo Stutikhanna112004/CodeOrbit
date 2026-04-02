@@ -1,0 +1,754 @@
+{% extends 'base.html' %}
+{% block title %}CodeOrbit{% endblock %}
+
+{% block content %}
+<div style="padding-top:64px;min-height:100vh;position:relative;">
+
+  <!-- Solar system canvas — behind everything -->
+  <canvas id="solar-canvas" style="position:fixed;inset:0;z-index:0;
+    pointer-events:none;opacity:0.55;"></canvas>
+
+  <!-- Content layer -->
+  <div style="position:relative;z-index:10;">
+
+    <!-- Mode pills -->
+    <div style="display:flex;align-items:center;justify-content:center;
+                gap:10px;padding:28px 40px 0;">
+      <button class="mode-pill active" id="pill-review"
+        onclick="switchMode('review')">
+        <span class="mode-dot"></span> Review
+      </button>
+      <button class="mode-pill" id="pill-teach"
+        onclick="switchMode('teach')">
+        <span class="mode-dot"></span> Teach
+      </button>
+      <button class="mode-pill" id="pill-convert"
+        onclick="switchMode('convert')">
+        <span class="mode-dot"></span> Convert
+      </button>
+    </div>
+
+    <!-- Main workspace -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;
+                padding:14px 40px 40px;height:calc(100vh - 128px);">
+
+      <!-- LEFT: Input panel -->
+      <div class="card" style="display:flex;flex-direction:column;overflow:hidden;min-height:0;">
+
+        <!-- Panel header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:12px 16px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;gap:4px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:#ff5f57;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#febc2e;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#28c840;"></div>
+            </div>
+            <span id="editor-tab" style="font-size:11px;color:var(--muted);
+                  letter-spacing:0.06em;margin-left:4px;">editor.py</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <!-- Language selector (shown in review + convert modes) -->
+            <select id="lang-select"
+              style="font-size:11px;padding:3px 8px;border-radius:5px;
+                     color:var(--muted);letter-spacing:0.04em;">
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="java">Java</option>
+              <option value="cpp">C++</option>
+              <option value="go">Go</option>
+              <option value="rust">Rust</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- REVIEW MODE: Monaco editor (default) -->
+        <div id="area-review" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+          <div id="monaco-container" style="flex:1;min-height:300px;height:100%;"></div>
+        </div>
+
+        <!-- TEACH MODE: Concept input -->
+        <div id="area-teach" style="flex:1;display:none;
+             flex-direction:column;padding:24px;">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;
+                      text-transform:uppercase;margin-bottom:12px;">
+            What do you want to learn?
+          </div>
+          <input id="concept-input"
+            placeholder="e.g. recursion, closures, pointers, async/await..."
+            style="width:100%;padding:12px 14px;font-size:14px;
+                   border-radius:8px;margin-bottom:16px;"/>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;
+                      text-transform:uppercase;margin-bottom:10px;">
+            Language
+          </div>
+          <select id="teach-lang"
+            style="width:100%;padding:10px 12px;font-size:13px;border-radius:8px;">
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="java">Java</option>
+            <option value="cpp">C++</option>
+            <option value="go">Go</option>
+            <option value="rust">Rust</option>
+          </select>
+          <div style="margin-top:20px;font-size:12px;color:#303050;line-height:1.8;">
+            Try asking:<br>
+            <span style="color:#404060;">— "explain recursion"</span><br>
+            <span style="color:#404060;">— "how do closures work"</span><br>
+            <span style="color:#404060;">— "what is a pointer"</span>
+          </div>
+        </div>
+
+        <!-- CONVERT MODE: Monaco + target lang -->
+        <div id="area-convert" style="flex:1;display:none;flex-direction:column;min-height:0;">
+          <div id="monaco-container-2" style="flex:1;min-height:300px;height:100%;"></div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);
+                      display:flex;align-items:center;gap:12px;">
+            <span style="font-size:11px;color:var(--muted);letter-spacing:0.08em;
+                         text-transform:uppercase;">Convert to</span>
+            <select id="target-lang"
+              style="font-size:11px;padding:4px 10px;border-radius:6px;flex:1;">
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="go">Go</option>
+              <option value="rust">Rust</option>
+              <option value="java">Java</option>
+              <option value="cpp">C++</option>
+              <option value="python">Python</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Action bar — always visible -->
+        <div style="padding:12px 16px;border-top:1px solid var(--border);
+                    display:flex;align-items:center;gap:10px;">
+          <input id="title-input" placeholder="Title (optional)"
+            style="flex:1;padding:7px 12px;font-size:12px;border-radius:6px;"/>
+          <button id="run-btn" class="btn-primary" onclick="runAction()"
+            style="padding:8px 20px;font-size:11px;letter-spacing:0.1em;
+                   white-space:nowrap;">
+            Run
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Output panel -->
+      <div class="card" style="display:flex;flex-direction:column;overflow:hidden;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:12px 16px;border-bottom:1px solid var(--border);">
+          <span id="output-label" style="font-size:11px;color:var(--muted);
+                letter-spacing:0.1em;text-transform:uppercase;">Output</span>
+          <div id="status-pill"
+            style="font-size:10px;padding:2px 10px;border:1px solid var(--border);
+                   border-radius:999px;color:var(--muted);letter-spacing:0.06em;">
+            Ready
+          </div>
+        </div>
+
+        <div id="output-body" style="flex:1;overflow-y:auto;padding:18px;">
+
+          <!-- Empty state -->
+          <div id="empty-state"
+            style="display:flex;flex-direction:column;align-items:center;
+                   justify-content:center;height:100%;color:#252540;text-align:center;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1" style="margin-bottom:14px;
+                 color:#1a1a30;">
+              <circle cx="12" cy="12" r="10"/>
+              <path stroke-linecap="round"
+                d="M12 8v4m0 4h.01"/>
+            </svg>
+            <p style="font-size:13px;color:#252540;">Select a mode, write your input, press Run</p>
+          </div>
+
+          <!-- Stream output -->
+          <div id="stream-box" style="display:none;">
+            <pre id="stream-text" class="streaming-cursor"
+              style="font-size:11px;color:#a0ffa0;font-family:monospace;
+                     background:#080810;border-radius:8px;padding:14px;
+                     white-space:pre-wrap;line-height:1.7;"></pre>
+          </div>
+
+          <!-- Structured outputs (filled by JS) -->
+          <div id="review-output" style="display:none;"></div>
+          <div id="teach-output"  style="display:none;"></div>
+          <div id="convert-output" style="display:none;"></div>
+
+        </div>
+
+        <div style="padding:8px 16px;border-top:1px solid var(--border);">
+          <span id="stats-text"
+            style="font-size:10px;color:#252540;letter-spacing:0.04em;">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (!localStorage.getItem('access_token')) window.location.href = '/login/';
+  let currentMode = 'review';
+  let editor, editor2;
+
+  /* ── Solar system background ─────────────────────────────── */
+  const sc   = document.getElementById('solar-canvas');
+  const sctx = sc.getContext('2d');
+  let SW, SH, ST = 0;
+
+  function resizeSolar() {
+    SW = sc.width  = window.innerWidth;
+    SH = sc.height = window.innerHeight;
+  }
+  resizeSolar();
+  window.addEventListener('resize', resizeSolar);
+
+  /* Star field — fixed positions seeded by index */
+  const STARS = Array.from({length:120}, (_,i) => ({
+    x: (Math.sin(i * 127.1) * 0.5 + 0.5),
+    y: (Math.sin(i * 311.7) * 0.5 + 0.5),
+    r: Math.random() * 1.2 + 0.3,
+    twinkle: Math.random() * Math.PI * 2,
+  }));
+
+  const PLANETS = [
+    { r:5,  dist:70,  speed:0.009, color:'#ff9f7f', trail:[] },
+    { r:8,  dist:115, speed:0.006, color:'#4fc3f7', trail:[] },
+    { r:6,  dist:165, speed:0.004, color:'#81c784', trail:[] },
+    { r:4,  dist:215, speed:0.0025,color:'#ce93d8', trail:[] },
+    { r:11, dist:280, speed:0.0015,color:'#ffcc80', trail:[], ring:true },
+  ];
+
+  /* Sun position — bottom-right corner */
+  function sunPos() {
+    return { x: SW * 0.78, y: SH * 0.5 };
+  }
+
+  function drawSolar() {
+    sctx.clearRect(0, 0, SW, SH);
+    const { x: cx, y: cy } = sunPos();
+
+    /* Stars */
+    STARS.forEach((s, i) => {
+      const opacity = 0.4 + Math.sin(ST * 0.02 + s.twinkle) * 0.3;
+      sctx.beginPath();
+      sctx.arc(s.x * SW, s.y * SH, s.r, 0, Math.PI * 2);
+      sctx.fillStyle = `rgba(200,200,255,${opacity})`;
+      sctx.fill();
+    });
+
+    /* Sun glow layers */
+    const pulse = 1 + Math.sin(ST * 0.025) * 0.05;
+    [
+      { r: 55 * pulse, alpha: 0.04 },
+      { r: 38 * pulse, alpha: 0.10 },
+      { r: 24 * pulse, alpha: 0.22 },
+    ].forEach(g => {
+      sctx.beginPath();
+      sctx.arc(cx, cy, g.r, 0, Math.PI * 2);
+      sctx.fillStyle = `rgba(255,160,40,${g.alpha})`;
+      sctx.fill();
+    });
+    /* Sun core */
+    sctx.beginPath();
+    sctx.arc(cx, cy, 16 * pulse, 0, Math.PI * 2);
+    sctx.fillStyle = '#ffaa30';
+    sctx.fill();
+
+    /* Planets */
+    PLANETS.forEach(p => {
+      /* Orbit ring */
+      sctx.beginPath();
+      sctx.arc(cx, cy, p.dist, 0, Math.PI * 2);
+      sctx.strokeStyle = 'rgba(108,99,255,0.12)';
+      sctx.lineWidth = 0.5;
+      sctx.stroke();
+
+      const angle = ST * p.speed;
+      const px = cx + Math.cos(angle) * p.dist;
+      const py = cy + Math.sin(angle) * p.dist;
+
+      p.trail.push({ x: px, y: py });
+      if (p.trail.length > 28) p.trail.shift();
+
+      /* Trail */
+      p.trail.forEach((pt, i) => {
+        const a = (i / p.trail.length) * 0.25;
+        sctx.beginPath();
+        sctx.arc(pt.x, pt.y, 1.2, 0, Math.PI * 2);
+        sctx.fillStyle = `rgba(108,99,255,${a})`;
+        sctx.fill();
+      });
+
+      /* Saturn ring */
+      if (p.ring) {
+        sctx.save();
+        sctx.translate(px, py);
+        sctx.scale(1, 0.35);
+        sctx.beginPath();
+        sctx.arc(0, 0, p.r * 2.2, 0, Math.PI * 2);
+        sctx.strokeStyle = `${p.color}55`;
+        sctx.lineWidth = 3;
+        sctx.stroke();
+        sctx.restore();
+      }
+
+      /* Planet body */
+      sctx.beginPath();
+      sctx.arc(px, py, p.r, 0, Math.PI * 2);
+      sctx.fillStyle = p.color;
+      sctx.fill();
+    });
+
+    ST++;
+    requestAnimationFrame(drawSolar);
+  }
+  drawSolar();
+
+  /* ── Monaco setup ────────────────────────────────────────── */
+  require.config({
+    paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }
+  });
+  require(['vs/editor/editor.main'], () => {
+    const editorOpts = {
+      value: `def calculate(price, discount):\n    return price * (1 - discount)`,
+      language: 'python',
+      theme: 'vs-dark',
+      fontSize: 13,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      wordWrap: 'on',
+      automaticLayout: true,
+      padding: { top: 12 },
+      fontFamily: "'Fira Code', 'Cascadia Code', monospace",
+    };
+
+    editor  = monaco.editor.create(document.getElementById('monaco-container'),  editorOpts);
+    editor2 = monaco.editor.create(document.getElementById('monaco-container-2'), editorOpts);
+
+    document.getElementById('lang-select').addEventListener('change', function () {
+      monaco.editor.setModelLanguage(editor.getModel(),  this.value);
+      monaco.editor.setModelLanguage(editor2.getModel(), this.value);
+      document.getElementById('editor-tab').textContent =
+        `editor.${this.value === 'python' ? 'py' : this.value === 'javascript' ? 'js' : this.value}`;
+    });
+  });
+
+  /* ── Mode switching ──────────────────────────────────────── */
+  function switchMode(mode) {
+    currentMode = mode;
+
+    document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+    document.getElementById(`pill-${mode}`).classList.add('active');
+
+    document.getElementById('area-review').style.display  = 'none';
+    document.getElementById('area-teach').style.display   = 'none';
+    document.getElementById('area-convert').style.display = 'none';
+
+    const labels = { review: 'AI Review', teach: 'Lesson', convert: 'Converted Code' };
+    const btns   = { review: 'Review', teach: 'Teach me', convert: 'Convert' };
+
+    document.getElementById('output-label').textContent = labels[mode];
+    document.getElementById('run-btn').textContent      = btns[mode];
+
+    if (mode === 'review') {
+      document.getElementById('area-review').style.display = 'flex';
+      document.getElementById('lang-select').style.display = '';
+    } else if (mode === 'teach') {
+      document.getElementById('area-teach').style.display  = 'flex';
+      document.getElementById('lang-select').style.display = 'none';
+    } else if (mode === 'convert') {
+      document.getElementById('area-convert').style.display = 'flex';
+      document.getElementById('lang-select').style.display  = '';
+    }
+
+    resetOutput();
+  }
+
+  /* ── Run ─────────────────────────────────────────────────── */
+  async function runAction() {
+    if (currentMode === 'review')  await runReview();
+    if (currentMode === 'teach')   await runTeach();
+    if (currentMode === 'convert') await runConvert();
+  }
+
+  /* ── Review ──────────────────────────────────────────────── */
+  async function runReview() {
+    const code     = editor.getValue().trim();
+    const language = document.getElementById('lang-select').value;
+    const title    = document.getElementById('title-input').value || 'Untitled';
+    if (!code) { alert('Paste some code in the editor first.'); return; }
+
+    setStatus('Analyzing...', '#eab308');
+    setBtn(true);
+    resetOutput();
+    showStream();
+
+    try {
+      const res    = await apiFetch('/api/reviews/', 'POST',
+        { title, language, code_snippet: code });
+      const review = await res.json();
+
+      const t = localStorage.getItem('access_token');
+      const ws = new WebSocket(
+        `ws://127.0.0.1:8000/ws/review/${review.id}/?token=${t}`
+        );;
+      ws.onmessage = e => {
+        const d = JSON.parse(e.data);
+        if (d.type === 'connected')       ws.send(JSON.stringify({ action: 'start_review' }));
+        if (d.type === 'stream_chunk')    appendStream(d.chunk);
+        if (d.type === 'review_complete') {
+          hideStream();
+          renderReview(d);
+          setStatus('Done', '#22c55e');
+          setBtn(false);
+          loadStats();
+          ws.close();
+        }
+        if (d.type === 'error') {
+          setStatus('Error', '#ef4444');
+          setBtn(false);
+        }
+      };
+      ws.onerror = () => { setStatus('WS Error', '#ef4444'); setBtn(false); };
+    } catch(e) {
+      setStatus('Error', '#ef4444');
+      setBtn(false);
+    }
+  }
+
+  /* ── Teach ───────────────────────────────────────────────── */
+  async function runTeach() {
+    const concept  = document.getElementById('concept-input').value.trim();
+    const language = document.getElementById('teach-lang').value;
+
+    if (!concept) {
+      alert('Type a concept to learn first — e.g. "recursion" or "closures".');
+      return;
+    }
+
+    setStatus('Learning...', '#eab308');
+    setBtn(true);
+    resetOutput();
+    showStream();
+    appendStream(`Asking Gemini to teach "${concept}" in ${language}...\n\n`);
+
+    try {
+      const res  = await apiFetch('/api/teach/', 'POST', { concept, language });
+
+      if (!res.ok) {
+        const err = await res.json();
+        hideStream();
+        setStatus('Error', '#ef4444');
+        document.getElementById('teach-output').innerHTML =
+          `<p style="color:#ef4444;font-size:13px;">${err.error || 'Something went wrong.'}</p>`;
+        document.getElementById('teach-output').style.display = 'block';
+        setBtn(false);
+        return;
+      }
+
+      const data = await res.json();
+      hideStream();
+      renderLesson(data);
+      setStatus('Done', '#22c55e');
+      setBtn(false);
+    } catch(e) {
+      setStatus('Network error', '#ef4444');
+      setBtn(false);
+    }
+  }
+
+  /* ── Convert ─────────────────────────────────────────────── */
+  async function runConvert() {
+    const code      = editor2.getValue().trim();
+    const from_lang = document.getElementById('lang-select').value;
+    const to_lang   = document.getElementById('target-lang').value;
+
+    if (!code) {
+      alert('Paste some code in the editor first.');
+      return;
+    }
+    if (from_lang === to_lang) {
+      alert('Source and target language are the same — pick a different target.');
+      return;
+    }
+
+    setStatus('Converting...', '#eab308');
+    setBtn(true);
+    resetOutput();
+    showStream();
+    appendStream(`Converting ${from_lang} → ${to_lang}...\n\n`);
+
+    try {
+      const res  = await apiFetch('/api/convert/', 'POST', { code, from_lang, to_lang });
+
+      if (!res.ok) {
+        const err = await res.json();
+        hideStream();
+        setStatus('Error', '#ef4444');
+        document.getElementById('convert-output').innerHTML =
+          `<p style="color:#ef4444;font-size:13px;">${err.error || 'Something went wrong.'}</p>`;
+        document.getElementById('convert-output').style.display = 'block';
+        setBtn(false);
+        return;
+      }
+
+      const data = await res.json();
+      hideStream();
+      renderConvert(data, from_lang, to_lang);
+      setStatus('Done', '#22c55e');
+      setBtn(false);
+    } catch(e) {
+      setStatus('Network error', '#ef4444');
+      setBtn(false);
+    }
+  }
+
+  /* ── Renderers ───────────────────────────────────────────── */
+  function renderReview(data) {
+    const score  = data.quality_score || 0;
+    const col    = score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444';
+    const lbl    = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' :
+                   score >= 40 ? 'Needs work' : 'Critical';
+
+    const comments = (data.inline_comments || []).map(c => {
+      const cc = c.severity === 'critical' ? '#ef4444' :
+                 c.severity === 'warning'  ? '#eab308' : '#6c63ff';
+      return `<div style="border-left:2px solid ${cc};padding:10px 14px;
+              margin-bottom:8px;background:#080810;border-radius:0 6px 6px 0;">
+        <div style="font-size:10px;color:${cc};letter-spacing:.08em;
+                    text-transform:uppercase;margin-bottom:4px;">
+          ${c.severity}${c.line_number ? ` — line ${c.line_number}` : ''}
+        </div>
+        <div style="font-size:12px;color:#b0b0d0;margin-bottom:${c.suggestion?'6px':'0'};">
+          ${c.message}
+        </div>
+        ${c.suggestion ? `<pre style="font-size:11px;color:#80ff80;font-family:monospace;
+          background:#050508;padding:8px;border-radius:4px;
+          overflow-x:auto;margin:0;">${c.suggestion}</pre>` : ''}
+      </div>`;
+    }).join('');
+
+    document.getElementById('review-output').innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;
+                  margin-bottom:18px;padding:14px;
+                  background:#080810;border-radius:8px;">
+        <div style="font-size:40px;font-weight:300;color:${col};
+                    line-height:1;">${score}</div>
+        <div>
+          <div style="font-size:13px;color:${col};margin-bottom:4px;">${lbl}</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;">
+            ${data.summary || ''}
+          </div>
+        </div>
+      </div>
+      ${comments ? `<div style="margin-bottom:14px;">${comments}</div>` : ''}
+      ${data.improved_code ? `
+        <div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;
+                      text-transform:uppercase;margin-bottom:8px;">
+            Improved version
+          </div>
+          <pre style="font-size:11px;color:#d0d0f0;font-family:monospace;
+               background:#080810;padding:14px;border-radius:8px;
+               overflow-x:auto;white-space:pre-wrap;">${data.improved_code}</pre>
+        </div>` : ''}`;
+    document.getElementById('review-output').style.display = 'block';
+  }
+
+  function renderLesson(data) {
+    const mistakes = (data.common_mistakes || []).map(m => `
+      <div style="margin-bottom:10px;padding:10px 12px;
+           background:#080810;border-radius:6px;">
+        <div style="font-size:11px;color:#ef4444;margin-bottom:3px;">
+          ${m.mistake}
+        </div>
+        <div style="font-size:11px;color:#80c080;">${m.fix}</div>
+      </div>`).join('');
+
+    const nextTopics = (data.next_topics || []).map(t =>
+      `<span style="font-size:10px;padding:3px 10px;
+              border:1px solid var(--border);border-radius:999px;
+              color:var(--muted);letter-spacing:.04em;">${t}</span>`
+    ).join('');
+
+    document.getElementById('teach-output').innerHTML = `
+      <div style="font-size:20px;font-weight:300;color:#e0e0f0;
+                  margin-bottom:4px;">${data.concept_name || ''}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px;
+                  letter-spacing:.03em;">${data.one_line || ''}</div>
+      <div style="font-size:12px;color:#9090b0;line-height:1.9;margin-bottom:18px;">
+        ${(data.explanation || '').replace(/\n/g, '<br>')}
+      </div>
+      ${data.analogy ? `
+        <div style="border-left:2px solid var(--accent);padding:10px 14px;
+             margin-bottom:18px;background:#0a0a18;border-radius:0 8px 8px 0;">
+          <div style="font-size:10px;color:var(--accent);letter-spacing:.1em;
+                      text-transform:uppercase;margin-bottom:5px;">Analogy</div>
+          <div style="font-size:12px;color:#b0b0d0;">${data.analogy}</div>
+        </div>` : ''}
+      ${data.code_example ? `
+        <pre style="font-size:11px;color:#a0ffa0;font-family:monospace;
+             background:#050508;padding:14px;border-radius:8px;
+             overflow-x:auto;white-space:pre-wrap;margin-bottom:18px;">
+${data.code_example}</pre>` : ''}
+      ${mistakes ? `
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;
+                      text-transform:uppercase;margin-bottom:8px;">
+            Common mistakes
+          </div>
+          ${mistakes}
+        </div>` : ''}
+      ${data.practice_exercise ? `
+        <div style="padding:12px 14px;background:#0a0a18;
+             border:1px solid var(--border);border-radius:8px;margin-bottom:18px;">
+          <div style="font-size:10px;color:var(--accent);letter-spacing:.1em;
+                      text-transform:uppercase;margin-bottom:6px;">Practice</div>
+          <div style="font-size:12px;color:#b0b0d0;">${data.practice_exercise}</div>
+        </div>` : ''}
+      ${nextTopics ? `
+        <div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;
+                      text-transform:uppercase;margin-bottom:8px;">Learn next</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">${nextTopics}</div>
+        </div>` : ''}`;
+    document.getElementById('teach-output').style.display = 'block';
+  }
+
+  function renderConvert(data, from, to) {
+    const diffs = (data.key_differences || []).map(d =>
+      `<div style="font-size:11px;color:#9090b0;padding:6px 0;
+              border-bottom:1px solid var(--border);">${d}</div>`
+    ).join('');
+
+    document.getElementById('convert-output').innerHTML = `
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;
+                  text-transform:uppercase;margin-bottom:10px;">
+        ${from} → ${to}
+      </div>
+      <pre style="font-size:11px;color:#a0d0ff;font-family:monospace;
+           background:#050508;padding:14px;border-radius:8px;
+           overflow-x:auto;white-space:pre-wrap;margin-bottom:16px;">
+${data.converted_code || ''}</pre>
+      ${diffs ? `
+        <div style="margin-bottom:14px;">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;
+                      text-transform:uppercase;margin-bottom:8px;">
+            Key differences
+          </div>
+          ${diffs}
+        </div>` : ''}
+      ${data.notes ? `
+        <div style="font-size:11px;color:var(--muted);line-height:1.7;">
+          ${data.notes}
+        </div>` : ''}`;
+    document.getElementById('convert-output').style.display = 'block';
+  }
+
+  /* ── Helpers ─────────────────────────────────────────────── */
+  async function apiFetch(url, method, body) {
+    const t = localStorage.getItem('access_token');
+    let res = await fetch(url, {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${t}`
+        },
+        body: body ? JSON.stringify(body) : undefined
+    });
+
+    if (res.status === 401) {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) { window.location.href = '/login/'; return; }
+
+        const refreshRes = await fetch('/api/auth/refresh/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh: refreshToken })
+        });
+
+        if (!refreshRes.ok) {
+            localStorage.clear();
+            window.location.href = '/login/';
+            return;
+        }
+
+        const newToken = (await refreshRes.json()).access;
+        localStorage.setItem('access_token', newToken);
+
+        res = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${newToken}`
+            },
+            body: body ? JSON.stringify(body) : undefined
+        });
+    }
+    return res; 
+  }
+  function setStatus(text, color) {
+    const el = document.getElementById('status-pill');
+    el.textContent    = text;
+    el.style.color       = color;
+    el.style.borderColor = color;
+  }
+
+  function setBtn(loading) {
+    const btn = document.getElementById('run-btn');
+    btn.disabled = loading;
+    if (!loading) {
+      const labels = { review: 'Review', teach: 'Teach me', convert: 'Convert' };
+      btn.textContent = labels[currentMode];
+    } else {
+      btn.textContent = '...';
+    }
+  }
+
+  function resetOutput() {
+    ['empty-state','stream-box','review-output',
+     'teach-output','convert-output'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById('stream-text').textContent = '';
+  }
+
+  function showStream() {
+    document.getElementById('stream-box').style.display = 'block';
+    document.getElementById('stream-text').classList.add('streaming-cursor');
+  }
+
+  function hideStream() {
+    document.getElementById('stream-box').style.display = 'none';
+    document.getElementById('stream-text').classList.remove('streaming-cursor');
+  }
+
+  function appendStream(chunk) {
+    document.getElementById('stream-text').textContent += chunk;
+  }
+
+  async function loadStats() {
+    try {
+        const t = localStorage.getItem('access_token');
+        const res = await fetch('/api/reviews/stats/', {
+          headers: { 'Authorization': `Bearer ${t}` }
+        });
+        const data = await res.json();
+        document.getElementById('stats-text').textContent =
+            `${data.total_reviews} reviews · avg ${data.average_quality_score}/100`;
+    } catch(e) {}
+  }
+  loadStats();
+</script>
+
+<!-- Spinning logo animation -->
+<style>
+  .logo-grid { animation: logo-spin 10s linear infinite; }
+  @keyframes logo-spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}

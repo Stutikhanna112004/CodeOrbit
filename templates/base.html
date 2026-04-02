@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}CodeOrbit{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg:      #07070f;
+      --surface: #0d0d1a;
+      --border:  #1a1a2e;
+      --accent:  #6c63ff;
+      --accent2: #a78bfa;
+      --text:    #e0e0f0;
+      --muted:   #404060;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Particle canvas — sits behind everything */
+    #particle-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    /* Floating orbs — mouse gravity targets */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+      transition: transform 0.1s linear;
+    }
+    .orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, #6c63ff22, transparent 70%);
+      top: -100px; left: -100px;
+    }
+    .orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, #a78bfa18, transparent 70%);
+      bottom: -80px; right: -80px;
+    }
+    .orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, #818cf810, transparent 70%);
+      top: 40%; left: 50%;
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s, background 0.3s;
+    }
+    nav.scrolled {
+      border-color: var(--border);
+      background: rgba(7, 7, 15, 0.85);
+      backdrop-filter: blur(20px);
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .logo-grid {
+      animation: logo-spin 10s linear infinite;
+      transform-origin: center;
+      }
+      @keyframes logo-spin {
+      to { transform: rotate(360deg); }
+     }
+      
+    
+    .logo-grid span {
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .logo-grid span:nth-child(2) { opacity: 0.4; }
+    .logo-grid span:nth-child(3) { opacity: 0.4; }
+    .logo-grid span:nth-child(4) { opacity: 0.15; }
+    .logo-name {
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      color: #8080a0;
+      font-weight: 400;
+      text-transform: uppercase;
+    }
+
+    /* Nav links */
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* Nav CTA */
+    .nav-cta {
+      font-size: 13px;
+      padding: 8px 20px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color 0.2s, background 0.2s;
+      letter-spacing: 0.04em;
+    }
+    .nav-cta:hover {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.08);
+    }
+    .nav-cta.filled {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .nav-cta.filled:hover { background: #7c74ff; }
+
+    /* Section reveal animation */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Content sits above canvas/orbs */
+    .content { position: relative; z-index: 10; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: #2a2a40; border-radius: 2px; }
+
+    /* Mode pills */
+    .mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+    .mode-pill:hover, .mode-pill.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(108,99,255,0.06);
+    }
+    .mode-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Input / select */
+    input, select, textarea {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    /* Primary button */
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      text-transform: uppercase;
+    }
+    .btn-primary:hover { background: #7c74ff; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    /* Streaming cursor */
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .streaming-cursor::after {
+      content: '|';
+      animation: blink 0.7s infinite;
+      color: var(--accent);
+      margin-left: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Particle canvas -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- Mouse-gravity orbs -->
+<div class="orb orb-1" id="orb1"></div>
+<div class="orb orb-2" id="orb2"></div>
+<div class="orb orb-3" id="orb3"></div>
+
+<!-- Navigation -->
+<nav id="navbar">
+  <a href="/" class="logo">
+    <div class="logo-grid">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <span class="logo-name">CodeOrbit</span>
+  </a>
+
+  <div class="nav-links" id="nav-links">
+    <!-- Filled by JS -->
+  </div>
+</nav>
+
+<!-- Page content -->
+<div class="content">
+  {% block content %}{% endblock %}
+</div>
+
+<script>
+  /* ── Particle canvas ─────────────────────────────────────── */
+  const canvas = document.getElementById('particle-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  class Particle {
+    constructor() { this.reset(); }
+    reset() {
+      this.x  = Math.random() * W;
+      this.y  = Math.random() * H;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = (Math.random() - 0.5) * 0.3;
+      this.r  = Math.random() * 1.5 + 0.5;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+    }
+  }
+
+  for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => {
+      p.update();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(108,99,255,0.6)';
+      ctx.fill();
+    });
+
+    // Draw connecting lines between close particles
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(108,99,255,${0.15 * (1 - dist/120)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(drawParticles);
+  }
+  drawParticles();
+
+  /* ── Mouse gravity on orbs ───────────────────────────────── */
+  let mouseX = 0, mouseY = 0;
+  let orb1X = 0, orb1Y = 0;
+  let orb2X = 0, orb2Y = 0;
+
+  document.addEventListener('mousemove', e => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function animateOrbs() {
+    const cx = mouseX / window.innerWidth  - 0.5;
+    const cy = mouseY / window.innerHeight - 0.5;
+
+    orb1X = lerp(orb1X, cx * 60,  0.04);
+    orb1Y = lerp(orb1Y, cy * 60,  0.04);
+    orb2X = lerp(orb2X, cx * -40, 0.03);
+    orb2Y = lerp(orb2Y, cy * -40, 0.03);
+
+    document.getElementById('orb1').style.transform =
+      `translate(${orb1X}px, ${orb1Y}px)`;
+    document.getElementById('orb2').style.transform =
+      `translate(${orb2X}px, ${orb2Y}px)`;
+    document.getElementById('orb3').style.transform =
+      `translate(${cx * 30}px, ${cy * 30}px)`;
+
+    requestAnimationFrame(animateOrbs);
+  }
+  animateOrbs();
+
+  /* ── Scroll: nav background + reveal animations ──────────── */
+  const navbar = document.getElementById('navbar');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  /* ── Auth nav ────────────────────────────────────────────── */
+  function getToken() { return localStorage.getItem('access_token'); }
+  function getUser()  { return JSON.parse(localStorage.getItem('user') || '{}'); }
+  function logout()   { localStorage.clear(); window.location.href = '/login/'; }
+
+  const navLinks = document.getElementById('nav-links');
+  var token = getToken();
+
+  if (token) {
+    const user = getUser();
+    navLinks.innerHTML = `
+      <a href="/">Dashboard</a>
+      <a href="#" style="color:#6060808">${user.username || ''}</a>
+      <a href="#" class="nav-cta" onclick="logout()">Sign out</a>`;
+  } else {
+    navLinks.innerHTML = `
+      <a href="/login/">Sign in</a>
+      <a href="/register/" class="nav-cta filled">Get started</a>`;
+  }
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Stream Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+    #output { white-space: pre-wrap; background: #252526; padding: 15px;
+              border-radius: 8px; min-height: 200px; margin-top: 10px; }
+    button { background: #007acc; color: white; border: none;
+             padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+    input  { background: #3c3c3c; color: white; border: 1px solid #555;
+             padding: 8px; border-radius: 4px; width: 400px; }
+    .chunk { color: #9cdcfe; }
+    .event { color: #4ec9b0; font-weight: bold; }
+    .error { color: #f48771; }
+    .score { color: #dcdcaa; font-size: 1.4em; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2 style="color:#569cd6">WebSocket Stream Tester</h2>
+
+  <div>
+    <input id="token" placeholder="Paste your JWT access token here" />
+  </div>
+  <div style="margin-top:8px">
+    <input id="reviewId" placeholder="Review ID (e.g. 1)" value="1" style="width:100px"/>
+    <button onclick="connect()">Connect</button>
+    <button onclick="startReview()">Start Review</button>
+    <button onclick="clearOutput()">Clear</button>
+  </div>
+
+  <div id="output">Output will appear here...</div>
+
+  <script>
+    let ws = null;
+
+    function log(msg, cls = '') {
+      const out = document.getElementById('output');
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = msg;
+      out.appendChild(span);
+      out.scrollTop = out.scrollHeight;
+    }
+
+    function connect() {
+      const token = document.getElementById('token').value.trim();
+      const reviewId = document.getElementById('reviewId').value.trim();
+
+      if (!token) { alert('Paste your JWT token first!'); return; }
+
+      // Close existing connection
+      if (ws) ws.close();
+
+      // NOTE: JWT in WS URL is a simple approach for testing
+      // In production we use cookies or a ticket system
+      // Replace this line in connect():
+      const url = `ws://127.0.0.1:8000/ws/review/${reviewId}/?token=${token}`;
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        log('\n[CONNECTED to ' + url + ']\n', 'event');
+        // Send token as first message for auth
+        ws.send(JSON.stringify({ token: token }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'connected') {
+          log('\n[READY] ' + data.message + '\n', 'event');
+        } else if (data.type === 'stream_start') {
+          log('\n[AI REVIEW STREAMING]\n', 'event');
+        } else if (data.type === 'stream_chunk') {
+          log(data.chunk, 'chunk');  // Raw text chunk — typewriter effect!
+        } else if (data.type === 'stream_end') {
+          log('\n\n[PARSING & SAVING...]\n', 'event');
+        } else if (data.type === 'review_complete') {
+          log('\n\n[REVIEW COMPLETE]\n', 'event');
+          log('Quality Score: ' + data.quality_score + '/100\n', 'score');
+          log('Summary: ' + data.summary + '\n', 'event');
+        } else if (data.type === 'error') {
+          log('\n[ERROR] ' + data.message + '\n', 'error');
+        }
+      };
+
+      ws.onerror = (e) => log('\n[WS ERROR]\n', 'error');
+      ws.onclose = (e) => log(`\n[DISCONNECTED code=${e.code}]\n`, 'event');
+    }
+
+    function startReview() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Connect first!'); return;
+      }
+      ws.send(JSON.stringify({ action: 'start_review' }));
+    }
+
+    function clearOutput() {
+      document.getElementById('output').textContent = '';
+    }
+  </script>
+</body>
+</html>

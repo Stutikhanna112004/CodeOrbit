@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Sign Up — AI Code Reviewer{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center">
+  <div class="w-full max-w-md">
+
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-3">🚀</div>
+      <h1 class="text-3xl font-bold text-white">Create account</h1>
+      <p class="text-gray-400 mt-2">Start reviewing code with AI for free</p>
+    </div>
+
+    <div id="error-msg" class="hidden bg-red-900/50 border border-red-500
+         text-red-300 rounded-xl p-4 mb-6 text-sm"></div>
+
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Username</label>
+          <input id="username" type="text" placeholder="cool_developer"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3
+                   text-white placeholder-gray-500 focus:outline-none
+                   focus:border-violet-500 transition"/>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Email</label>
+          <input id="email" type="email" placeholder="you@example.com"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3
+                   text-white placeholder-gray-500 focus:outline-none
+                   focus:border-violet-500 transition"/>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Password</label>
+          <input id="password" type="password" placeholder="Min 8 characters"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3
+                   text-white placeholder-gray-500 focus:outline-none
+                   focus:border-violet-500 transition"/>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">Confirm Password</label>
+          <input id="confirm" type="password" placeholder="••••••••"
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3
+                   text-white placeholder-gray-500 focus:outline-none
+                   focus:border-violet-500 transition"/>
+        </div>
+        <button onclick="register()"
+          class="w-full bg-violet-600 hover:bg-violet-500 text-white font-semibold
+                 py-3 rounded-xl transition">
+          <span id="btn-text">Create Account</span>
+        </button>
+      </div>
+
+      <p class="text-center text-gray-500 text-sm mt-6">
+        Already have an account?
+        <a href="/login/" class="text-violet-400 hover:text-violet-300">Sign in</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (localStorage.getItem('access_token')) window.location.href = '/';
+
+  async function register() {
+    const username         = document.getElementById('username').value.trim();
+    const email            = document.getElementById('email').value.trim();
+    const password         = document.getElementById('password').value;
+    const confirm_password = document.getElementById('confirm').value;
+    const btn              = document.getElementById('btn-text');
+
+    if (!username || !email || !password) {
+      showError('Please fill in all fields.'); return;
+    }
+    if (password !== confirm_password) {
+      showError('Passwords do not match.'); return;
+    }
+
+    btn.textContent = 'Creating account...';
+
+    try {
+      const res = await fetch('/api/auth/register/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, confirm_password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errors = Object.values(data).flat().join(' ');
+        showError(errors);
+        btn.textContent = 'Create Account';
+        return;
+      }
+
+      localStorage.setItem('access_token', data.tokens.access);
+      localStorage.setItem('refresh_token', data.tokens.refresh);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      window.location.href = '/';
+
+    } catch (e) {
+      showError('Network error.');
+      btn.textContent = 'Create Account';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+</script>
+{% endblock %}
