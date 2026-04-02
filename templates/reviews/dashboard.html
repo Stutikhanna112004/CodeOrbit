@@ -395,8 +395,12 @@
 
       const t = localStorage.getItem('access_token');
       const ws = new WebSocket(
-        `ws://127.0.0.1:8000/ws/review/${review.id}/?token=${t}`
-        );;
+        `ws://127.0.0.1:8000/ws/review/${review.id}/?tokenconst t = localStorage.getItem('access_token');
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = window.location.host;
+        const ws = new WebSocket(
+          `${wsProtocol}//${wsHost}/ws/review/${review.id}/?token=${t}`
+        );
       ws.onmessage = e => {
         const d = JSON.parse(e.data);
         if (d.type === 'connected')       ws.send(JSON.stringify({ action: 'start_review' }));
