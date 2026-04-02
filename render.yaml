@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: codeorbit
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate && daphne -b 0.0.0.0 -p $PORT core.asgi:application
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DB_NAME
+        value: codeorbitdb
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: codeorbit-redis
+          property: connectionString
+
+  - type: redis
+    name: codeorbit-redis
+    plan: free
+    maxmemoryPolicy: noeviction
