@@ -108,12 +108,23 @@ else:
 
 # ─── Django Channels + Redis ─────────────────────────────────────────────────
 # This tells Channels to use Redis as the "message bus" between workers
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        
-    },
-}
+REDIS_URL = os.getenv('REDIS_URL', '')
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        },
+    }
 
 # ─── Django REST Framework ───────────────────────────────────────────────────
 REST_FRAMEWORK = {
@@ -153,8 +164,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Use our custom user model (we'll create this next)
 AUTH_USER_MODEL = 'reviews.CustomUser'
 
+ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.railway.app',
+    'https://*.onrender.com',
+    'https://codeorbit-ldex.onrender.com',
     'http://localhost:8000',
-    'http://127.0.0.1:8000',
 ]

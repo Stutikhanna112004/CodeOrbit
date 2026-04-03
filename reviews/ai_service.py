@@ -31,12 +31,18 @@ def _call_groq(prompt: str) -> str:
 
 def _parse(raw: str) -> dict:
     """Strip markdown fences and parse JSON."""
+    import re
     clean = raw.strip()
+    # Remove markdown fences
     if clean.startswith('```'):
         clean = clean.split('\n', 1)[1]
     if clean.endswith('```'):
         clean = clean.rsplit('```', 1)[0]
-    return json.loads(clean.strip())
+    clean = clean.strip()
+    # Remove control characters that break JSON parsing
+    # but preserve actual newlines inside strings by encoding them
+    clean = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', clean)
+    return json.loads(clean)
 
 
 def build_review_prompt(code: str, language: str) -> str:
