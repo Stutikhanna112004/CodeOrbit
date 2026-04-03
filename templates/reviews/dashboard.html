@@ -438,7 +438,7 @@
     setBtn(true);
     resetOutput();
     showStream();
-    appendStream(`Asking Gemini to teach "${concept}" in ${language}...\n\n`);
+    appendStream(`Asking Gorq to teach "${concept}" in ${language}...\n\n`);
 
     try {
       const res  = await apiFetch('/api/teach/', 'POST', { concept, language });
