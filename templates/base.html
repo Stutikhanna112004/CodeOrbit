@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}CodeOrbit{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
 
@@ -389,14 +388,15 @@
 
   if (token) {
     const user = getUser();
+    const username = (user.username || '').replace(/'/g, "\\'");
     navLinks.innerHTML = `
-      <a href="/">Dashboard</a>
-      <a href="#" style="color:#6060808">${user.username || ''}</a>
-      <a href="#" class="nav-cta" onclick="logout()">Sign out</a>`;
+        <a href="/">Dashboard</a>
+        <span style="font-size:13px;color:#606080;letter-spacing:0.04em;">${username}</span>
+        <a href="#" class="nav-cta" onclick="logout()">Sign out</a>`;
   } else {
     navLinks.innerHTML = `
-      <a href="/login/">Sign in</a>
-      <a href="/register/" class="nav-cta filled">Get started</a>`;
+        <a href="/login/">Sign in</a>
+        <a href="/register/" class="nav-cta filled">Get started</a>`;
   }
 </script>
 
