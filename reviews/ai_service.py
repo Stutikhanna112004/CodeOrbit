@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-MODEL  = 'llama-3.3-70b-versatile'
-
+MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-120b')
 
 def _call_groq(prompt: str) -> str:
     """Single place that calls Groq — returns raw text string."""
@@ -24,7 +23,8 @@ def _call_groq(prompt: str) -> str:
             }
         ],
         temperature=0.2,
-        max_tokens=4000,
+        max_tokens=8000
+        reasoning_effort='low',
     )
     return response.choices[0].message.content
 
@@ -107,8 +107,9 @@ def get_ai_review_stream(code: str, language: str):
                 }
             ],
             temperature=0.2,
-            max_tokens=4000,
+            max_tokens=8000,
             stream=True,
+            reasoning_effort='low',
         )
         for chunk in stream:
             delta = chunk.choices[0].delta.content
